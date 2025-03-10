@@ -3,7 +3,6 @@ package store
 import (
 	"encoding/csv"
 	"kiranaclub/internal/models"
-	"log"
 	"os"
 	"sync"
 )
@@ -30,31 +29,6 @@ func Count() int {
 
 // LoadStoreMaster loads stores from a CSV file
 func LoadStoreMaster(filePath string) error {
-	// Create store master file if it doesn't exist
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		// Sample data
-		log.Printf("File do not exist hence creating one")
-		sampleStores := [][]string{
-			{"StoreID", "StoreName", "AreaCode"},
-			{"S00339218", "Walmart Central", "A001"},
-			{"S01408764", "Target Downtown", "A002"},
-			{"S02547931", "Kroger Heights", "A003"},
-		}
-
-		file, err := os.Create(filePath)
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-
-		writer := csv.NewWriter(file)
-		defer writer.Flush()
-
-		if err := writer.WriteAll(sampleStores); err != nil {
-			return err
-		}
-	}
-
 	// Read and parse the CSV file
 	file, err := os.Open(filePath)
 	if err != nil {

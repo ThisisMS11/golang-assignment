@@ -52,6 +52,17 @@ func Get(jobID int) (*models.Job, bool) {
 	return job, exists
 }
 
+// Get all jobs
+func GetAll() ([]models.Job) {
+	jobsMutex.RLock()
+	defer jobsMutex.RUnlock()
+	jobsSlice := make([]models.Job, 0, len(jobs))
+	for _, job := range jobs {
+		jobsSlice = append(jobsSlice, *job)
+	}
+	return jobsSlice
+}
+
 // processJob handles the processing of a job
 func processJob(job *models.Job) {
 	job.Status = "ongoing"
@@ -68,18 +79,21 @@ func processJob(job *models.Job) {
 	// Process each visit
 	for _, visit := range job.Visits {
 		// Check if store exists in master
+		log.Printf("Checking store with StoreID: %s", visit.StoreID)
 		storeInfo, exists := store.GetStore(visit.StoreID)
+
+		log.Printf("storeInfo : %+v", storeInfo)
 		if !exists {
 			// Add error if store doesn't exist
 			errorChan <- models.StoreError{
 				StoreID: visit.StoreID,
 				Error:   "store not found",
 			}
-			log.Printf("Store not found");
+			log.Printf("Store not found for StoreID: %s", visit.StoreID)
 			continue
 		}
 
-		log.Printf("Store Info: %+v", storeInfo)
+		log.Printf("Store Info for StoreID %s: %+v", visit.StoreID, storeInfo)
 
 		// Process each image
 		for _, imgURL := range visit.ImageURLs {

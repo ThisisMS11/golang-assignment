@@ -1,7 +1,6 @@
 package config
 
 import (
-	"log"
 	"os"
 )
 
@@ -19,15 +18,11 @@ func LoadConfig() *Config {
 		port = "8080"
 	}
 
-	storeMasterPath := os.Getenv("STORE_MASTER_PATH")
-	log.Printf("storeMasterPath : %s", storeMasterPath)
-	if storeMasterPath == "" {
-		storeMasterPath = "/home/mohit/Desktop/Visual-Studio-Code/GoLang/KiranaClub-Assignment/storeMaster.csv"
-	}
+	storeMasterPath := "storeMaster.csv"
 
 	return &Config{
 		Port:            port,
 		StoreMasterPath: storeMasterPath,
-		MaxWorkers:      10, // Default number of concurrent workers
+		MaxWorkers:      10, 
 	}
 }

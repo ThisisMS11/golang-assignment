@@ -6,16 +6,15 @@ import (
 	"kiranaclub/internal/config"
 )
 
-// SetupRouter configures and returns the HTTP router
 func SetupRouter() *http.Server {
 	cfg := config.LoadConfig()
 	
-	// Register handlers
+	/* Registering handlers */
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/submit", SubmitJobHandler)
 	mux.HandleFunc("/api/status", GetJobStatusHandler)
+	mux.HandleFunc("/api/jobs", GetJobsInformation)
 
-	// Create server with timeouts
 	server := &http.Server{
 		Addr:         ":" + cfg.Port,
 		Handler:      mux,

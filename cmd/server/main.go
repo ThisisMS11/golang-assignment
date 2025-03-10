@@ -17,7 +17,7 @@ func main() {
 	cfg := config.LoadConfig()
 
 	// Load store master data
-	if err := store.LoadStoreMaster(cfg.StoreMasterPath); err != nil {
+	if err := store.LoadStoreMaster(cfg.StoreMasterPath);err != nil {
 		log.Fatalf("Failed to load store master: %v", err)
 	}
 	log.Printf("Loaded %d stores from store master", store.Count())

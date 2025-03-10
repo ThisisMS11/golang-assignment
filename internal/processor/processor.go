@@ -30,7 +30,6 @@ func ProcessImage(imageURL string) (float64, error) {
 		return 0, fmt.Errorf("failed to download image: HTTP %d", resp.StatusCode)
 	}
 
-	// Decode image
 	img, _, err := image.Decode(resp.Body)
 	if err != nil {
 		return 0, fmt.Errorf("failed to decode image: %v", err)
@@ -42,7 +41,7 @@ func ProcessImage(imageURL string) (float64, error) {
 	width := bounds.Max.X - bounds.Min.X
 	perimeter := 2.0 * float64(height+width)
 
-	// Random sleep (0.1 to 0.4 seconds) to simulate GPU processing
+	// simulating GPU
 	sleepTime := 100 + rand.Intn(300)
 	time.Sleep(time.Duration(sleepTime) * time.Millisecond)
 
