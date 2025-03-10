@@ -1,0 +1,39 @@
+# Binaries & Build Files
+*.exe
+*.out
+*.dll
+*.so
+*.dylib
+*.o
+*.a
+*.lo
+*.la
+*.swp
+*.mod
+*.sum
+
+# Logs & Temp Files
+*.log
+tmp/
+temp/
+*.tmp
+*.bak
+
+# IDE/Editor Files
+.vscode/
+.idea/
+*.sublime-*
+*~
+*.swp
+
+*.env
+
+# Go Module Files
+go.sum
+
+# Vendor Directory (if using `go mod vendor`)
+/vendor/
+
+# Docker & CI/CD
+docker-compose.override.yml
+.dockerignore
