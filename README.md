@@ -56,14 +56,17 @@ The service is built using:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/retailpulse/image-processor.git
-   cd image-processor
+   git clone https://github.com/ThisisMS11/golang-assignment
+   cd golang-assignment
    ```
-
+2. Run the project:
+   ```bash
+   go run cmd/server/main.go
+   ```
 2. Build and run the service:
    ```bash
-   go build -o image-processor
-   ./image-processor
+   go build -o server ./cmd/server
+   ./server
    ```
 
 3. The service will be available at `http://localhost:8080`
@@ -72,8 +75,8 @@ The service is built using:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/retailpulse/image-processor.git
-   cd image-processor
+   git clone https://github.com/ThisisMS11/golang-assignment
+   cd golang-assignment
    ```
 
 2. Build and run with Docker Compose:
