@@ -1,12 +1,12 @@
 version: '3'
 
 services:
-  image-processor:
+  kiranaclub:
     build: .
     ports:
       - "8080:8080"
     volumes:
-      - ./store_master.json:/app/store_master.json
+      - ./storeMaster.csv:/app/storeMaster.csv
     environment:
       - PORT=8080
-      - STORE_MASTER_PATH=/app/store_master.json
+    restart: on-failure

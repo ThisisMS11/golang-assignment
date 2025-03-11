@@ -10,19 +10,17 @@ import (
 )
 
 func main() {
-	// Seed random number generator
 	rand.Seed(time.Now().UnixNano())
 
-	// Load configuration
 	cfg := config.LoadConfig()
 
-	// Load store master data
+	/* preprocessing the master store data */
 	if err := store.LoadStoreMaster(cfg.StoreMasterPath);err != nil {
 		log.Fatalf("Failed to load store master: %v", err)
 	}
 	log.Printf("Loaded %d stores from store master", store.Count())
 
-	// Set up and start HTTP server
+	/* Set up and start HTTP server */
 	router := api.SetupRouter()
 	port := cfg.Port
 
