@@ -1,93 +1,83 @@
-# GET /api/jobs - List All Jobs
+# GET /api/jobs
 
 ## Overview
-The `/api/jobs` endpoint allows clients to retrieve a list of all jobs that have been submitted to the Retail Pulse Image Processing Service. It returns an array of job objects, each representing a processing job along with its current status, associated store, image count, and timestamps.
+The `/api/jobs` endpoint returns a list of all jobs that have been submitted to the service, including their current status, timestamps, and processing statistics. It is useful for monitoring ongoing work and reviewing completed or failed jobs.
 
 ## Request
-| Property | Value |
-|----------|-------|
-| **Method** | `GET` |
-| **URL** | `/api/jobs` |
-| **Authentication** | Not required (public endpoint) |
-| **Query Parameters** | None |
 
-## Response
-### HTTP Status
-- `200 OK` – Successfully returned the list of jobs (may be an empty array).
-
-### Response Body Schema
-The response body is a JSON array containing one or more **Job Objects**.
-
-#### Job Object Fields
-- **jobID** (`integer`) – Unique identifier for the job, allocated sequentially starting from 1.
-- **status** (`string`) – Current state of the job. Possible values:
-  - `"pending"` – Job has been submitted but not yet started.
-  - `"processing"` – Job is currently being processed.
-  - `"completed"` – All images have been processed successfully.
-  - `"failed"` – Job terminated due to an error (e.g., missing store, image download/processing failure).
-- **storeID** (`integer`) – Identifier of the retail store associated with the job. Values are validated against the `storeMaster.csv` file.
-- **imageCount** (`integer`) – Total number of images included in the job.
-- **createdAt** (`string`, RFC3339) – Timestamp when the job was created (ISO‑8601 format, e.g., `"2023-09-15T10:30:00Z"`).
-- **completedAt** (`string` or `null`, RFC3339) – Timestamp when the job finished (either successfully or with failure). `null` indicates the job is still in progress.
-- **Additional fields** – The service may include extra information such as:
-  - `errorMessage` (`string` or `null`) – Description of the failure, present only when `status` is `"failed"`.
-  - `processedCount` (`integer`) – Number of images already processed (useful when `status` is `"processing"`).
-  - `progress` (`number`) – Percentage progress of the job (0‑100) when `status` is `"processing"`.
-  - `storeName` (`string`) – Human‑readable name of the store (enriched from the store master data).
+**Method:** `GET`  
+**URL:** `/api/jobs`  
+**Headers:** None required (no authentication)  
+**Query Parameters:** None required. The endpoint returns all jobs; filtering is not currently supported.
 
 ### Example Request
-```http
-GET /api/jobs HTTP/1.1
-Host: localhost:8080
+```bash
+curl -X GET http://localhost:8080/api/jobs
 ```
 
-### Example Response (200 OK)
+## Response
+
+**HTTP Status:** `200 OK`
+
+The response body is a JSON array where each element represents a job object. Jobs are returned in chronological order (newest first).
+
+### Response Schema
+
+Each job object contains the following fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | Unique sequential identifier for the job (starting from 1). |
+| `status` | string | Current processing status of the job. Possible values: `queued`, `in-progress`, `completed`, `failed`. |
+| `createdAt` | string (ISO‑8601 timestamp) | Timestamp when the job was submitted (e.g., `2023-10-01T12:00:00Z`). |
+| `updatedAt` | string (ISO‑8601 timestamp) | Timestamp of the most recent status change for the job. |
+| `totalImages` | integer | Total number of images associated with the job. |
+| `processedImages` | integer | Number of images that have been successfully processed so far. |
+| `errorCount` | integer | Number of images that failed processing (or store validation) for this job. |
+| `storeIDs` | array of integers | List of store identifiers referenced by the images in this job (validated against `storeMaster.csv`). |
+| `imageURLs` *(optional)* | array of strings | The original image URLs submitted with the job (may be omitted for privacy or size reasons). |
+
+### Example Response
 ```json
 [
   {
-    "jobID": 1,
+    "id": 1,
     "status": "completed",
-    "storeID": 101,
-    "imageCount": 50,
-    "createdAt": "2023-09-15T10:30:00Z",
-    "completedAt": "2023-09-15T10:45:12Z",
-    "storeName": "Store‑A"
+    "createdAt": "2023-10-01T12:00:00Z",
+    "updatedAt": "2023-10-01T12:05:30Z",
+    "totalImages": 150,
+    "processedImages": 150,
+    "errorCount": 0,
+    "storeIDs": [101, 102]
   },
   {
-    "jobID": 2,
-    "status": "processing",
-    "storeID": 102,
-    "imageCount": 120,
-    "createdAt": "2023-09-15T11:00:05Z",
-    "completedAt": null,
-    "processedCount": 94,
-    "progress": 78
-  },
-  {
-    "jobID": 3,
-    "status": "failed",
-    "storeID": 103,
-    "imageCount": 30,
-    "createdAt": "2023-09-15T11:15:20Z",
-    "completedAt": "2023-09-15T11:22:00Z",
-    "errorMessage": "Store ID 103 not found in store master data"
+    "id": 2,
+    "status": "in-progress",
+    "createdAt": "2023-10-01T12:01:00Z",
+    "updatedAt": "2023-10-01T12:03:45Z",
+    "totalImages": 200,
+    "processedImages": 120,
+    "errorCount": 2,
+    "storeIDs": [103]
   }
 ]
 ```
 
 ## Error Responses
-- **500 Internal Server Error** – Returned when an unexpected error occurs while retrieving jobs (e.g., failure reading the job registry, file I/O, or a panic in the handler). Example body:
-  ```json
-  {
-    "error": "internal server error"
-  }
-  ```
 
-  *Note:* The service does not return 4xx errors for this endpoint because no client‑supplied parameters are validated. Errors are solely server‑side.
+| HTTP Code | Description | Body |
+|-----------|-------------|------|
+| `500 Internal Server Error` | An unexpected error occurred while retrieving the job list (e.g., internal state corruption). | `{"error":"internal server error"}` |
+| `503 Service Unavailable` | The service is temporarily unable to process the request (e.g., store master data missing). | `{"error":"service unavailable"}` |
+
+All other status codes follow standard HTTP semantics (e.g., `404 Not Found` is not applicable because the endpoint itself always exists).
 
 ## Authentication
-No authentication is required. The endpoint is publicly accessible.
 
-## See Also
-- [Submit Job](/apis/submit-job.md) – Create a new processing job.
-- [Get Job Status](/apis/status.md) – Retrieve details of a specific job.
+No authentication is required for this endpoint. All requests are treated as public.
+
+## Additional Notes
+
+- The endpoint does not support pagination; large numbers of jobs are retained in memory. For production use, consider implementing pagination or a separate administrative interface.
+- Job status transitions follow the workflow defined in the job processor: `queued` → `in-progress` → `completed` or `failed`.
+- Failed jobs are retained with their error count so that you can audit which images caused processing failures.
