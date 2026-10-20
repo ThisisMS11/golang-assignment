@@ -1,95 +1,92 @@
 # List Jobs API
 
 ## Overview
-This endpoint returns a list of all jobs (including ongoing, completed, and failed) currently tracked by the service. It provides a quick snapshot of the processing pipeline for monitoring and auditing purposes.
+The **List Jobs** endpoint retrieves information about all jobs submitted to the Retail Pulse Image Processing Service. It returns a list of jobs with their identifiers, current statuses, and timestamps.
 
-## Endpoint
-- **URL**: `/api/jobs`
-- **Method**: `GET`
-- **Authentication**: None required
+- **Endpoint**: `GET /api/jobs`
+- **Description**: Returns an array of job objects representing all executed and ongoing jobs.
+- **Authentication**: None required.
 
 ## Request
-No parameters are required for this endpoint. Query parameters are not used.
-
-**Sample request**:
-```
-GET /api/jobs HTTP/1.1
-Host: localhost:8080
-```
+- **Method**: `GET`
+- **URL**: `/api/jobs`
+- **Query Parameters**: None
+- **Headers**: None required
 
 ## Response
 
-### Success Response
-**Status Code**: `200 OK`  
-**Content-Type**: `application/json`
+### Successful Response (200 OK)
+The handler returns a JSON array of job objects. Each job object contains the following fields:
 
-**Schema**: An array of job objects. Each job object contains the following fields:
-- `job_id` (integer): Unique identifier of the job, allocated sequentially starting from 1.
-- `status` (string): Current processing state. Possible values: `pending`, `processing`, `completed`, `failed`.
-- `created_at` (string, ISO 8601 timestamp): Timestamp when the job was created.
-- `updated_at` (string, ISO 8601 timestamp): Timestamp of the last status change.
-- `store_id` (integer): Identifier of the retail store associated with the job.
-- `image_count` (integer, optional): Number of images the job processes (if known).
-- `error_message` (string, optional): Error description if the job has failed (null otherwise).
+| Field | Type | Description |
+|-------|------|-------------|
+| `jobID` | integer | Unique identifier for the job (auto‑incremented). |
+| `status` | string | Current status of the job. Possible values: `pending`, `processing`, `completed`, `failed`. |
+| `createdAt` | string (ISO‑8601) | Timestamp when the job was submitted. |
+| `updatedAt` | string (ISO‑8601) | Timestamp of the last status change. |
 
-**Example response**:
+**Example**:
 ```json
 [
   {
-    "job_id": 1,
+    "jobID": 1,
     "status": "completed",
-    "created_at": "2023-09-01T12:34:56Z",
-    "updated_at": "2023-09-01T12:45:00Z",
-    "store_id": 42,
-    "image_count": 150,
-    "error_message": null
+    "createdAt": "2023-09-20T12:34:56Z",
+    "updatedAt": "2023-09-20T12:36:02Z"
   },
   {
-    "job_id": 2,
+    "jobID": 2,
     "status": "processing",
-    "created_at": "2023-09-01T13:10:00Z",
-    "updated_at": "2023-09-01T13:15:30Z",
-    "store_id": 7,
-    "image_count": 200,
-    "error_message": null
+    "createdAt": "2023-09-20T13:10:15Z",
+    "updatedAt": "2023-09-20T13:10:20Z"
   }
 ]
 ```
 
-### Error Responses
-| Status Code | Description                                 | Example Body                     |
-|-------------|---------------------------------------------|----------------------------------|
-| `500`       | Internal server error – unable to retrieve jobs list | `{"error":"internal server error"}` |
-| `503`       | Service unavailable (e.g., job store not initialized) | `{"error":"service unavailable"}` |
+> **Note**: The service may optionally include extra metadata (e.g., `storeCount`, `imageCount`) in each job object, but the core fields above are always present.
+
+### Error Response (500 Internal Server Error)
+If an unexpected error occurs while retrieving the job list, the service returns:
+
+- **Status Code**: `500 Internal Server Error`
+- **Content‑Type**: `application/json`
+
+**Example**:
+```json
+{
+  "error": "internal server error"
+}
+```
 
 ## Flow Diagram
-The following Mermaid flowchart illustrates the flow of retrieving all jobs from the server to the client.
+The following diagram illustrates the flow when a client requests the list of jobs:
 
 ```mermaid
 flowchart TD
-    %% Client
-    C[Client Application] -->|GET /api/jobs| S[Go Server]
-
-    %% Server side
-    S -->|Read jobs map (thread-safe)| M[In‑memory Job Storage]
-    M -->|Iterate over all entries| A[Assemble Job Objects]
-    A -->|Apply field formatting| F[JSON Marshal]
-    F -->|Return response| C
-
-    %% Optional error path
-    S -.->|Panic / DB error| E[Error Handler]
-    E -->|Return 5xx| C
+    A[Client sends GET /api/jobs] --> B[HTTP Router]
+    B --> C[Handler: listJobs]
+    C --> D[Fetch all jobs from tracker]
+    D --> E[Build job objects (ID, status, timestamps)]
+    E --> F[Serialize to JSON]
+    F --> G[Return HTTP 200 with JSON body]
+    
+    H[Error while fetching] --> I[Log error]
+    I --> G[Return HTTP 500 with error JSON]
 ```
 
-**Explanation**:
-1. The client sends a `GET` request to `/api/jobs`.
-2. The server’s handler reads the internal `jobs` map (protected by a mutex) to ensure a consistent snapshot.
-3. Each job entry is transformed into a structured object with the fields defined above.
-4. The array of objects is serialized to JSON and returned with a `200 OK` status.
-5. If an unexpected error occurs while accessing the job storage, the server returns a 5xx error response.
+1. **Client** issues a `GET` request to `/api/jobs`.
+2. The **Router** directs the request to the `listJobs` handler.
+3. The handler queries the in‑memory job tracker for all jobs.
+4. Each job is transformed into a JSON object containing `jobID`, `status`, `createdAt`, and `updatedAt`.
+5. The array of objects is serialized and sent back with HTTP status `200 OK`.
+6. Should any internal error occur (e.g., database or tracker failure), an HTTP `500` response with a generic error message is returned.
 
-## Notes
-- No authentication token is required.
-- The list includes all jobs regardless of their current status (`pending`, `processing`, `completed`, `failed`).
-- Job IDs are monotonic and unique across the lifetime of the process.
-- Store master data is validated before a job is added; a job with an invalid `store_id` will be marked as `failed`.
+## Error Codes
+| Code | Meaning |
+|------|----------|
+| `200` | Successfully returned the list of jobs. |
+| `500` | Internal server error while processing the request. |
+
+## See Also
+- [Submit Job API](/docs/apis/submit-job.md) – create a new processing job.  
+- [Job Status API](/docs/apis/job-status.md) – retrieve details of a specific job.
