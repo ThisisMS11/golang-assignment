@@ -1,83 +1,95 @@
-# GET /api/jobs
+# List Jobs API
 
 ## Overview
-The `/api/jobs` endpoint returns a list of all jobs that have been submitted to the service, including their current status, timestamps, and processing statistics. It is useful for monitoring ongoing work and reviewing completed or failed jobs.
+This endpoint returns a list of all jobs (including ongoing, completed, and failed) currently tracked by the service. It provides a quick snapshot of the processing pipeline for monitoring and auditing purposes.
+
+## Endpoint
+- **URL**: `/api/jobs`
+- **Method**: `GET`
+- **Authentication**: None required
 
 ## Request
+No parameters are required for this endpoint. Query parameters are not used.
 
-**Method:** `GET`  
-**URL:** `/api/jobs`  
-**Headers:** None required (no authentication)  
-**Query Parameters:** None required. The endpoint returns all jobs; filtering is not currently supported.
-
-### Example Request
-```bash
-curl -X GET http://localhost:8080/api/jobs
+**Sample request**:
+```
+GET /api/jobs HTTP/1.1
+Host: localhost:8080
 ```
 
 ## Response
 
-**HTTP Status:** `200 OK`
+### Success Response
+**Status Code**: `200 OK`  
+**Content-Type**: `application/json`
 
-The response body is a JSON array where each element represents a job object. Jobs are returned in chronological order (newest first).
+**Schema**: An array of job objects. Each job object contains the following fields:
+- `job_id` (integer): Unique identifier of the job, allocated sequentially starting from 1.
+- `status` (string): Current processing state. Possible values: `pending`, `processing`, `completed`, `failed`.
+- `created_at` (string, ISO 8601 timestamp): Timestamp when the job was created.
+- `updated_at` (string, ISO 8601 timestamp): Timestamp of the last status change.
+- `store_id` (integer): Identifier of the retail store associated with the job.
+- `image_count` (integer, optional): Number of images the job processes (if known).
+- `error_message` (string, optional): Error description if the job has failed (null otherwise).
 
-### Response Schema
-
-Each job object contains the following fields:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | integer | Unique sequential identifier for the job (starting from 1). |
-| `status` | string | Current processing status of the job. Possible values: `queued`, `in-progress`, `completed`, `failed`. |
-| `createdAt` | string (ISO‑8601 timestamp) | Timestamp when the job was submitted (e.g., `2023-10-01T12:00:00Z`). |
-| `updatedAt` | string (ISO‑8601 timestamp) | Timestamp of the most recent status change for the job. |
-| `totalImages` | integer | Total number of images associated with the job. |
-| `processedImages` | integer | Number of images that have been successfully processed so far. |
-| `errorCount` | integer | Number of images that failed processing (or store validation) for this job. |
-| `storeIDs` | array of integers | List of store identifiers referenced by the images in this job (validated against `storeMaster.csv`). |
-| `imageURLs` *(optional)* | array of strings | The original image URLs submitted with the job (may be omitted for privacy or size reasons). |
-
-### Example Response
+**Example response**:
 ```json
 [
   {
-    "id": 1,
+    "job_id": 1,
     "status": "completed",
-    "createdAt": "2023-10-01T12:00:00Z",
-    "updatedAt": "2023-10-01T12:05:30Z",
-    "totalImages": 150,
-    "processedImages": 150,
-    "errorCount": 0,
-    "storeIDs": [101, 102]
+    "created_at": "2023-09-01T12:34:56Z",
+    "updated_at": "2023-09-01T12:45:00Z",
+    "store_id": 42,
+    "image_count": 150,
+    "error_message": null
   },
   {
-    "id": 2,
-    "status": "in-progress",
-    "createdAt": "2023-10-01T12:01:00Z",
-    "updatedAt": "2023-10-01T12:03:45Z",
-    "totalImages": 200,
-    "processedImages": 120,
-    "errorCount": 2,
-    "storeIDs": [103]
+    "job_id": 2,
+    "status": "processing",
+    "created_at": "2023-09-01T13:10:00Z",
+    "updated_at": "2023-09-01T13:15:30Z",
+    "store_id": 7,
+    "image_count": 200,
+    "error_message": null
   }
 ]
 ```
 
-## Error Responses
+### Error Responses
+| Status Code | Description                                 | Example Body                     |
+|-------------|---------------------------------------------|----------------------------------|
+| `500`       | Internal server error – unable to retrieve jobs list | `{"error":"internal server error"}` |
+| `503`       | Service unavailable (e.g., job store not initialized) | `{"error":"service unavailable"}` |
 
-| HTTP Code | Description | Body |
-|-----------|-------------|------|
-| `500 Internal Server Error` | An unexpected error occurred while retrieving the job list (e.g., internal state corruption). | `{"error":"internal server error"}` |
-| `503 Service Unavailable` | The service is temporarily unable to process the request (e.g., store master data missing). | `{"error":"service unavailable"}` |
+## Flow Diagram
+The following Mermaid flowchart illustrates the flow of retrieving all jobs from the server to the client.
 
-All other status codes follow standard HTTP semantics (e.g., `404 Not Found` is not applicable because the endpoint itself always exists).
+```mermaid
+flowchart TD
+    %% Client
+    C[Client Application] -->|GET /api/jobs| S[Go Server]
 
-## Authentication
+    %% Server side
+    S -->|Read jobs map (thread-safe)| M[In‑memory Job Storage]
+    M -->|Iterate over all entries| A[Assemble Job Objects]
+    A -->|Apply field formatting| F[JSON Marshal]
+    F -->|Return response| C
 
-No authentication is required for this endpoint. All requests are treated as public.
+    %% Optional error path
+    S -.->|Panic / DB error| E[Error Handler]
+    E -->|Return 5xx| C
+```
 
-## Additional Notes
+**Explanation**:
+1. The client sends a `GET` request to `/api/jobs`.
+2. The server’s handler reads the internal `jobs` map (protected by a mutex) to ensure a consistent snapshot.
+3. Each job entry is transformed into a structured object with the fields defined above.
+4. The array of objects is serialized to JSON and returned with a `200 OK` status.
+5. If an unexpected error occurs while accessing the job storage, the server returns a 5xx error response.
 
-- The endpoint does not support pagination; large numbers of jobs are retained in memory. For production use, consider implementing pagination or a separate administrative interface.
-- Job status transitions follow the workflow defined in the job processor: `queued` → `in-progress` → `completed` or `failed`.
-- Failed jobs are retained with their error count so that you can audit which images caused processing failures.
+## Notes
+- No authentication token is required.
+- The list includes all jobs regardless of their current status (`pending`, `processing`, `completed`, `failed`).
+- Job IDs are monotonic and unique across the lifetime of the process.
+- Store master data is validated before a job is added; a job with an invalid `store_id` will be marked as `failed`.
