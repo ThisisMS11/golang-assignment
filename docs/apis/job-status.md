@@ -1,130 +1,237 @@
-# GET /api/status
+# Job Status API Endpoint
 
-**Endpoint:** `/api/status`
+## Overview
 
-**Method:** `GET`
+The `/api/status` endpoint allows clients to retrieve the current status and details of a specific job. This endpoint is essential for monitoring the progress of image processing jobs submitted via the `/api/submit/` endpoint.
 
-## Query Parameters
-| Parameter | Required | Description |
-|-----------|----------|-------------|
-| `jobid`   | Yes      | The unique identifier of the job whose status you want to retrieve. Must be a positive integer. |
+## HTTP Method
 
-## Request Details
-- **Headers:** No authentication is required. Any standard HTTP headers are ignored.
-- **URL Example:** `GET /api/status?jobid=42`
+`GET`
 
-## Authentication
-None – the endpoint is publicly accessible.
+## Request
 
-## Response Codes
-- `200 OK` – Job status retrieved successfully. Returns a JSON body (see below).
-- `400 Bad Request` – `jobid` is missing, malformed, or not a valid integer.
-- `404 Not Found` – No job exists with the supplied `jobid`.
-- `500 Internal Server Error` – An unexpected server error occurred while processing the request.
+### URL
 
-## Response Body (JSON)
-
-```json
-{
-  "status": "pending|processing|completed|failed",
-  "job_details": {
-    "id": 42,
-    "store_id": "ST001",
-    "images": [
-      {
-        "url": "https://example.com/image1.jpg",
-        "height": 1080,
-        "width": 1920,
-        "perimeter": 6000
-      },
-      // … additional image objects …
-    ],
-    "progress": 12,
-    "total": 20,
-    "created_at": "2023-09-15T10:30:00Z",
-    "updated_at": "2023-09-15T10:45:23Z"
-  },
-  "errors": [
-    "Failed to download image https://example.com/image3.png",
-    "Store ID ST002 not found in master data"
-  ]
-}
+```
+GET /api/status?jobid=<job_id>
 ```
 
-### Field Descriptions
-- **`status`** – Current processing state of the job. Possible values:
-  - `pending`   – Job created but not yet started.
-  - `processing` – Images are being downloaded/processed.
-  - `completed` – All images processed successfully.
-  - `failed`    – Job terminated due to errors.
-- **`job_details`** – Object containing full job information.
-  - **`id`** – Unique job identifier (sequential integer).
-  - **`store_id`** – Identifier of the store associated with the job (validated against `storeMaster.csv`).
-  - **`images`** – Array of image objects being processed.
-    - **`url`** – Original image URL.
-    - **`height`** – Image height in pixels.
-    - **`width`** – Image width in pixels.
-    - **`perimeter`** – Calculated perimeter (2 × [height + width]).
-  - **`progress`** – Number of images already processed.
-  - **`total`** – Total number of images in the job.
-  - **`created_at`** – ISO‑8601 timestamp when the job was created.
-  - **`updated_at`** – ISO‑8601 timestamp of the last status change.
-- **`errors`** – List of error messages encountered during processing. Empty array (`[]`) when no errors have occurred.
+### Query Parameter
 
-## Example Success Response (Status 200)
+| Parameter | Type   | Required | Description                                   |
+|-----------|--------|----------|-----------------------------------------------|
+| `jobid`   | integer| Yes      | The unique identifier of the job to query.    |
+
+**Example Request**
+
+```http
+GET /api/status?jobid=42 HTTP/1.1
+Host: localhost:8080
+```
+
+### Authentication
+
+No authentication is required. The endpoint is publicly accessible.
+
+### Error Handling for Missing / Invalid `jobid`
+
+| Scenario                              | HTTP Status | Response Body (JSON)                                    |
+|---------------------------------------|-------------|--------------------------------------------------------|
+| Missing `jobid` query parameter       | `400 Bad Request` | `{ "error": "missing jobid parameter" }`                |
+| Invalid `jobid` format (non‑integer) | `400 Bad Request` | `{ "error": "invalid jobid format, must be an integer" }` |
+| Job ID does not exist                 | `404 Not Found`   | `{ "error": "job not found" }`                           |
+| Unexpected server error               | `500 Internal Server Error` | `{ "error": "internal server error" }`               |
+
+The service validates the `jobid` parameter early in the request handling chain and returns appropriate HTTP status codes with JSON error messages.
+
+## Response Schema
+
+### Success Response (HTTP 200 OK)
 
 ```json
 {
+  "job_id": 42,
   "status": "processing",
-  "job_details": {
-    "id": 7,
-    "store_id": "ST005",
-    "images": [
-      {
-        "url": "https://example.com/store5/001.jpg",
-        "height": 800,
-        "width": 1200,
-        "perimeter": 4000
-      },
-      {
-        "url": "https://example.com/store5/002.png",
-        "height": 1024,
-        "width": 768,
-        "perimeter": 3584
-      }
-    ],
-    "progress": 1,
-    "total": 5,
-    "created_at": "2023-10-01T08:15:42Z",
-    "updated_at": "2023-10-01T08:16:10Z"
+  "progress": {
+    "total_images": 150,
+    "processed_images": 87,
+    "percentage": 58
   },
-  "errors": []
+  "results": [
+    {
+      "image_url": "https://example.com/store1/img1.jpg",
+      "perimeter": 1240,
+      "processed_at": "2023-10-05T14:32:10Z"
+    },
+    {
+      "image_url": "https://example.com/store1/img2.png",
+      "perimeter": 1864,
+      "processed_at": "2023-10-05T14:33:05Z"
+    }
+  ],
+  "errors": [
+    {
+      "image_url": "https://example.com/store1/img5.jpg",
+      "error_message": "image not found",
+      "occurred_at": "2023-10-05T14:40:22Z"
+    }
+  ],
+  "timestamps": {
+    "created_at": "2023-10-05T13:15:00Z",
+    "started_at": "2023-10-05T13:16:05Z",
+    "updated_at": "2023-10-05T14:45:12Z",
+    "completed_at": null
+  }
 }
 ```
 
-## Example Error Responses
+#### Response Fields
 
-- **Missing `jobid` (400 Bad Request)**
-  ```json
-  { "error": "missing required query parameter 'jobid'" }
-  ```
+| Field          | Type                             | Description                                                                                    |
+|----------------|-----------------------------------|------------------------------------------------------------------------------------------------|
+| `job_id`       | integer                           | The unique identifier of the job.                                                             |
+| `status`       | string (enum)                     | Possible values: `pending`, `processing`, `completed`, `failed`.                               |
+| `progress`     | object                            | Contains counts and percentage of processed images.                                            |
+| `results`      | array of result objects           | Each object holds the image URL, calculated perimeter, and timestamp of processing.            |
+| `errors`       | array of error objects            | Each object captures the image URL that caused an error, error message, and occurrence time.    |
+| `timestamps`   | object with ISO‑8601 strings      | Tracks lifecycle times: `created_at`, `started_at`, `updated_at`, `completed_at` (null if not finished). |
 
-- **Job not found (404 Not Found)**
-  ```json
-  { "error": "job with id 99 not found" }
-  ```
+#### Progress Object
 
-- **Server error (500 Internal Server Error)**
-  ```json
-  { "error": "internal server error" }
-  ```
+| Sub‑field           | Type    | Description                                              |
+|---------------------|---------|----------------------------------------------------------|
+| `total_images`      | integer | Total number of images in the job.                       |
+| `processed_images`  | integer | Number of images that have completed processing.         |
+| `percentage`        | integer | Percentage of completion (`(processed_images / total_images) * 100`). |
 
-## Notes
-- The service maintains thread‑safe job state using mutexes, so concurrent requests are handled correctly.
-- No authentication or authorization is required for this endpoint.
-- The `jobid` values are allocated sequentially from 1 upward; invalid or out‑of‑range identifiers will result in a 404.
-- If a job fails, the `errors` array will contain detailed messages describing why processing could not complete (e.g., download failures, missing store IDs, unsupported image formats).
+#### Result Object
 
-## See Also
-- [Submit Job](/apis/submit-job.md) – Creates a new processing job.
-- [List All Jobs](/apis/list-jobs.md) – Retrieves information about all jobs.
+| Sub‑field    | Type      | Description                               |
+|--------------|-----------|-------------------------------------------|
+| `image_url`  | string    | Original URL of the processed image.      |
+| `perimeter`  | integer   | Calculated perimeter (`2 * (height + width)`).|
+| `processed_at`| string   | ISO‑8601 timestamp when the image was processed.|
+
+#### Error Object
+
+| Sub‑field       | Type      | Description                                          |
+|-----------------|-----------|------------------------------------------------------|
+| `image_url`     | string    | URL of the problematic image.                       |
+| `error_message` | string    | Human‑readable description of the error.             |
+| `occurred_at`   | string    | ISO‑8601 timestamp when the error occurred.          |
+
+#### Timestamps Object
+
+| Sub‑field       | Type      | Description                                          |
+|-----------------|-----------|------------------------------------------------------|
+| `created_at`    | string    | When the job was submitted (ISO‑8601).               |
+| `started_at`    | string    | When processing began (ISO‑8601, `null` if not started).|
+| `updated_at`    | string    | Last modification time of the job (ISO‑8601).        |
+| `completed_at`  | string or null | When processing finished (ISO‑8601) or `null` if still pending/failed.|
+
+## Request/Response Example
+
+### Request
+
+```http
+GET /api/status?jobid=7 HTTP/1.1
+Host: example.com:8080
+```
+
+### Response (Job still processing)
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "job_id": 7,
+  "status": "processing",
+  "progress": {
+    "total_images": 5,
+    "processed_images": 2,
+    "percentage": 40
+  },
+  "results": [
+    {
+      "image_url": "https://pics.example.com/storeA/img1.jpg",
+      "perimeter": 3100,
+      "processed_at": "2023-10-06T09:12:00Z"
+    },
+    {
+      "image_url": "https://pics.example.com/storeA/img2.png",
+      "perimeter": 2540,
+      "processed_at": "2023-10-06T09:14:12Z"
+    }
+  ],
+  "errors": [],
+  "timestamps": {
+    "created_at": "2023-10-06T08:58:00Z",
+    "started_at": "2023-10-06T09:00:00Z",
+    "updated_at": "2023-10-06T09:15:00Z",
+    "completed_at": null
+  }
+}
+```
+
+### Response (Job completed)
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "job_id": 8,
+  "status": "completed",
+  "progress": {
+    "total_images": 10,
+    "processed_images": 10,
+    "percentage": 100
+  },
+  "results": [ … ],
+  "errors": [ … ],
+  "timestamps": {
+    "created_at": "2023-09-28T11:00:00Z",
+    "started_at": "2023-09-28T11:02:00Z",
+    "updated_at": "2023-09-28T11:15:30Z",
+    "completed_at": "2023-09-28T11:15:30Z"
+  }
+}
+```
+
+## Flow Diagram
+
+```mermaid
+flowchart TD
+    %% Client side
+    C[Client Application] -->|Sends GET request with jobid| S[Server /api/status]
+    
+    %% Server side processing
+    S -->|Validates jobid| V{Validate jobid}
+    V -->|Missing/Invalid| V -->|Returns 400/404 with error JSON|
+    
+    V -->|Valid jobid| V -->|Retrieves job from in‑memory store|
+    V -->|Job not found| V -->|Returns 404 with error JSON|
+    
+    V -->|Job found| V -->|Builds status response JSON|
+    V -->|Returns 200 OK| S -->|C[Client receives response]|
+    
+    %% Annotations
+    C -->|Monitors progress| C
+    C -->|Polls periodically| C
+```
+
+**Explanation**
+
+1. The client constructs a GET request to `/api/status` with the `jobid` query parameter.
+2. The server validates the presence and format of `jobid`. If invalid, a 400 or 404 response is returned immediately.
+3. For a valid `jobid`, the server fetches the job data from its in‑memory job store.
+4. The server assembles the status payload, including job metadata, progress counters, results, errors, and timestamps.
+5. The server responds with HTTP 200 and the JSON payload, which the client parses and displays (or uses for further actions).
+
+## Additional Notes
+
+* The job store is thread‑safe; concurrent status requests for different jobs will not interfere.
+* The `progress.percentage` is calculated as integer division (`processed_images * 100 / total_images`).
+* If a job has finished (either `completed` or `failed`), the `timestamps.completed_at` field will contain the final timestamp; otherwise it is `null`.
+* The endpoint does not require any authentication, aligning with the service's design for open access to job status information.
